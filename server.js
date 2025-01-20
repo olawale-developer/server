@@ -1,183 +1,191 @@
+// Import required modules
 const dotenv = require("dotenv");
+const mysql = require("mysql2");
+const axios = require('axios');
+
+// Load environment variables from .env file
 dotenv.config();
-const mysql = require("mysql2/promise");
-const axios = require('axios')
 
-const pool = mysql.createPool({
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_DATABASE,
+// Create a MySQL database connection
+const db = mysql.createConnection({
+  host: process.env.DB_HOST, // Database host
+  user: process.env.DB_USER, // Database user
+  password: process.env.DB_PASSWORD, // Database password
+  database: process.env.DB_DATABASE, // Database name
 });
 
-const seenIds = new Set();
+// Object to store timers to prevent duplicate processing
+let timers = {};
 
-async function fetchProcessingTransactions() {
-  const query =
-    'SELECT * FROM 2settle_transaction_table WHERE status = "Processing"';
+// Function to fetch transactions with status "Processing" from the database
+async function fetchProcessingTransactions() { 
+    db.query( 'SELECT * FROM 2settle_transaction_table WHERE status = "Processing"', (err, results) => {
+        if (err) {
+            console.error('Error querying the database:', err);
+            return;
+        }
+        // If there are results, process each transaction
+        if (results.length > 0) {
+          results.forEach(({ mode_of_payment, wallet_address, acct_number, bank_name, receiver_name, transac_id, crypto_sent, receiver_amount, current_rate, network, crypto, asset_price, Date }) => { 
+             // Check if the transaction is already being processed
+            if (!timers[transac_id]) { 
 
-  try {
-    let [rows, fields] = await pool.query(query);
-    // console.log("Query result:", rows);
-
-    if (!Array.isArray(rows) || rows.length === 0) {
-      return [];
-    }
-
-    return rows;
-  } catch (error) {
-    console.error("Error fetching processing transactions:", error);
-    return [];
-  }
+               // Process BTC transactions
+              if (crypto === 'BTC') {
+              // 
+              if(mode_of_payment === 'transferMoney' || mode_of_payment === 'request') {
+              db.query('SELECT * FROM 2settle_bank_details WHERE bank_name = ?', [bank_name], (err, result) => {
+                if (err) {
+                  console.error('Error querying the database:', err);
+                  return;
+                }
+                if (result.length > 0) { 
+                   const arr = result.map((row) => row.bank_code)
+                  const bank_code = arr.toString()
+                   // Call BTC API
+                  BtcApi(wallet_address,acct_number,bank_name,bank_code,receiver_name,transac_id,crypto_sent,receiver_amount,current_rate,asset_price,mode_of_payment,Date)
+                }
+              })
+              }else if (mode_of_payment === 'Gift') {
+                const bank_code = 'undefined'
+                 // Call BTC API
+                 BtcApi(wallet_address,acct_number,bank_name,bank_code,receiver_name,transac_id,crypto_sent,receiver_amount,current_rate,asset_price,mode_of_payment,Date)
+                console.log('working perfectly')
+              }
+        
+              }
+                 // Process ETH transactions
+            else if (crypto === 'ETH') {
+                  if(mode_of_payment === 'transferMoney' || mode_of_payment === 'request') {
+              db.query('SELECT * FROM 2settle_bank_details WHERE bank_name = ?', [bank_name], (err, result) => {
+                if (err) {
+                  console.error('Error querying the database:', err);
+                  return;
+                }
+                if (result.length > 0) { 
+                   const arr = result.map((row) => row.bank_code)
+                  const bank_code = arr.toString()
+                  EthApi(wallet_address,acct_number,bank_name,bank_code,receiver_name,transac_id,crypto_sent,receiver_amount,current_rate,asset_price,mode_of_payment,Date)
+                }
+              })
+              }else if (mode_of_payment === 'Gift') {
+                 const bank_code = 'undefined'
+               EthApi(wallet_address,acct_number,bank_name,bank_code,receiver_name,transac_id,crypto_sent,receiver_amount,current_rate,asset_price,mode_of_payment,Date)
+                console.log('working perfectly')
+              }
+              }
+                // Process BNB transactions
+              else if (crypto === 'BNB') {
+                  if(mode_of_payment === 'transferMoney' || mode_of_payment === 'request') {
+              db.query('SELECT * FROM 2settle_bank_details WHERE bank_name = ?', [bank_name], (err, result) => {
+                if (err) {
+                  console.error('Error querying the database:', err);
+                  return;
+                }
+                if (result.length > 0) { 
+                   const arr = result.map((row) => row.bank_code)
+                  const bank_code = arr.toString()
+               BnbApi(wallet_address,acct_number,bank_name,bank_code,receiver_name,transac_id,crypto_sent,receiver_amount,current_rate,asset_price,mode_of_payment,Date)
+                }
+              })
+              }else if (mode_of_payment === 'Gift') {
+                 const bank_code = 'undefined'
+               BnbApi(wallet_address,acct_number,bank_name,bank_code,receiver_name,transac_id,crypto_sent,receiver_amount,current_rate,asset_price,mode_of_payment,Date)
+                console.log('working perfectly')
+              }
+   
+              }
+                // Process TRX transactions
+            else if (crypto === 'TRX') {
+               if(mode_of_payment === 'transferMoney'|| mode_of_payment === 'request') {
+              db.query('SELECT * FROM 2settle_bank_details WHERE bank_name = ?', [bank_name], (err, result) => {
+                if (err) {
+                  console.error('Error querying the database:', err);
+                  return;
+                }
+                if (result.length > 0) { 
+                   const arr = result.map((row) => row.bank_code)
+                  const bank_code = arr.toString()
+               TronApi(wallet_address,acct_number,bank_name,bank_code,receiver_name,transac_id,crypto_sent,receiver_amount,current_rate,asset_price,mode_of_payment,Date)
+                }
+              })
+              }else if (mode_of_payment === 'Gift') {
+                 const bank_code = 'undefined'
+               TronApi(wallet_address,acct_number,bank_name,bank_code,receiver_name,transac_id,crypto_sent,receiver_amount,current_rate,asset_price,mode_of_payment,Date)
+                console.log('working perfectly')
+              }
+              }
+                // Process USDT (TRC20 network) transactions
+            else if (crypto === 'USDT' && network === 'TRC20') {
+              if(mode_of_payment === 'transferMoney' || mode_of_payment === 'request') {
+              db.query('SELECT * FROM 2settle_bank_details WHERE bank_name = ?', [bank_name], (err, result) => {
+                if (err) {
+                  console.error('Error querying the database:', err);
+                  return;
+                }
+                if (result.length > 0) { 
+                   const arr = result.map((row) => row.bank_code)
+                  const bank_code = arr.toString()
+               Trc20Api(wallet_address,acct_number,bank_name,bank_code,receiver_name,transac_id,crypto_sent,receiver_amount,current_rate,mode_of_payment,Date)
+                }
+              })
+              }else if (mode_of_payment === 'Gift') {
+                 const bank_code = 'undefined'
+                 Trc20Api(wallet_address, acct_number, bank_name, bank_code, receiver_name, transac_id, crypto_sent, receiver_amount, current_rate, mode_of_payment,Date)
+                console.log('working perfectly')
+              }
+            }
+            // Process USDT (ERC20 network) transactions
+            else if (crypto === 'USDT' && network === 'ERC20') {
+              if (mode_of_payment === 'transferMoney' || mode_of_payment === 'request') {
+                db.query('SELECT * FROM 2settle_bank_details WHERE bank_name = ?', [bank_name], (err, result) => {
+                  if (err) {
+                    console.error('Error querying the database:', err);
+                    return;
+                  }
+                  if (result.length > 0) {
+                    const arr = result.map((row) => row.bank_code)
+                    const bank_code = arr.toString()
+                       erc20Api(wallet_address,acct_number,bank_name,bank_code,receiver_name,transac_id,crypto_sent,receiver_amount,current_rate,mode_of_payment,Date)
+                  }
+                })
+              }else if (mode_of_payment === 'Gift') {
+                 const bank_code = 'undefined'
+                  erc20Api(wallet_address,acct_number,bank_name,bank_code,receiver_name,transac_id,crypto_sent,receiver_amount,current_rate,mode_of_payment,Date)
+                 console.log('working perfectly')
+              }
+         
+            }
+            // Process USDT (BEP20 network) transactions
+            else if (crypto === 'USDT' && network === 'BEP20') {
+                 if (mode_of_payment === 'transferMoney' || mode_of_payment === 'request') {
+                db.query('SELECT * FROM 2settle_bank_details WHERE bank_name = ?', [bank_name], (err, result) => {
+                  if (err) {
+                    console.error('Error querying the database:', err);
+                    return;
+                  }
+                  if (result.length > 0) {
+                    const arr = result.map((row) => row.bank_code)
+                    const bank_code = arr.toString()
+                      bep20Api(wallet_address, acct_number, bank_name, bank_code, receiver_name, transac_id, crypto_sent, receiver_amount, current_rate,mode_of_payment,Date) 
+                  }
+                })
+              }else if (mode_of_payment === 'Gift') {
+                 const bank_code = 'undefined'
+                   bep20Api(wallet_address, acct_number, bank_name,bank_code, receiver_name, transac_id, crypto_sent, receiver_amount, current_rate,mode_of_payment,Date) 
+                   console.log('working perfectly')
+              }
+         }
+          timers[transac_id] = {}
+    
+                      }
+            })
+        }
+    })
 }
 
-// Function to sort transactions based on network and make each transaction unique by their id
-function sortTransactionsByNetwork(transactions, seenIds) {
-  const sortedTransactions = {
-    ETH: [],
-    BNB: [],
-    TRX: [],
-    ERC20: [],
-    BEP20: [],
-    TRC20: [],
-    BTC: [],
-    others: [],
-  };
-
-  // Iterate over the transactions
-  transactions.forEach((transaction) => {
-    const network = transaction.network;
-    const id = transaction.id;
-
-    if (!seenIds.has(id)) {
-      seenIds.add(id); // Add the unique id to the set
-      // Sort by network
-      switch (network.toUpperCase()) {
-        case "ETH":
-          sortedTransactions.ETH.push(transaction);
-          break;
-        case "BNB":
-          sortedTransactions.BNB.push(transaction);
-          break;
-        case "TRX":
-          sortedTransactions.TRX.push(transaction);
-          break;
-        case "ERC20":
-          sortedTransactions.ERC20.push(transaction);
-          break;
-        case "BEP20":
-          sortedTransactions.BEP20.push(transaction);
-          break;
-        case "TRC20":
-          sortedTransactions.TRC20.push(transaction);
-          break;
-        case "BTC":
-          sortedTransactions.BTC.push(transaction);
-          break;
-        default:
-          sortedTransactions.others.push(transaction);
-          break;
-      }
-    }
-  });
-
-  return sortedTransactions;
-}
-
-// Function to process one transaction with logging based on the network
-async function processTransaction(transaction) {
-const {id,wallet_address,acct_number,bank_name,bank_code,receiver_name,transac_id,crypto_sent,receiver_amount,current_rate,network} = transaction;
-
-  try {
-    // Network-specific logging before processing
-    if (network === "BTC") {
-      console.log(`Processing transaction with id ${id} and network BTC`);
-    //   await checkBTCTransaction(walletAddress, amountToCheck);
-    } else if (network === "ETH") {
-      console.log(`Processing transaction with id ${id} and network ETH`);
-    } else if (network === "BNB") {
-      console.log(`Processing transaction with id ${id} and network BNB`);
-    } else if (network === "TRX") {
-      console.log(`Processing transaction with id ${id} and network TRX`);
-    } else if (network === "ERC20") {
-     console.log(`Processing transaction with id ${id} and network ERC20`);
-     erc20Api(wallet_address,acct_number,bank_name,bank_code,receiver_name,transac_id,crypto_sent,receiver_amount,current_rate)
-    } else if (network === "BEP20") {
-    console.log(`Processing transaction with id ${id} and network BEP20`);
-     bep20Api(wallet_address,acct_number,bank_name,bank_code,receiver_name,transac_id,crypto_sent,receiver_amount,current_rate)
-    } else if (network === "TRC20") {
-      console.log(`Processing transaction with id ${id} and network TRC20`);
-    } else {
-      console.log(
-        `Processing transaction with id ${id} and network ${network}`
-      );
-    }
-
-    // Simulate processing time
-    await new Promise((resolve) => setTimeout(resolve, 1000)); // Simulate async call
-  } finally {
-    // After processing is done, remove the id from the seenIds set
-    seenIds.delete(id);
-    console.log(`Transaction with id ${id} and network ${network} done`);
-  }
-}
-
-// Function to handle concurrent processing
-async function processConcurrentNetworkTransactions(sortedTransactions) {
-  // Create promises for each network's transaction processing
-  const processingPromises = Object.entries(sortedTransactions).map(
-    async ([network, transactionList]) => {
-      if (transactionList.length > 0) {
-        // For each network, process transactions one by one, but start processing first transaction of each network in parallel
-        await processNetworkQueue(network, transactionList);
-      }
-    }
-  );
-
-  // Wait for all networks to finish processing
-  await Promise.all(processingPromises);
-  console.log("All networks' transactions processed");
-}
-
-// Function to process the first transaction from each network concurrently, and continue processing the rest
-async function processNetworkQueue(network, transactions) {
-  let index = 0;
-
-  async function processNextTransaction() {
-    if (index < transactions.length) {
-      const transaction = transactions[index];
-      index++;
-
-      // Process the current transaction
-      await processTransaction(transaction);
-
-      // Remove the processed transaction from the list
-      transactions.shift();
-      // console.log("The transactions left:", transactions);
-      // Once done, process the next one
-      processNextTransaction();
-    }
-  }
-
-  // Start processing the first transaction
-  processNextTransaction();
-}
-
-// Main function that fetches, sorts, and starts processing transactions
-async function processTransactions() {
-  const transactions = await fetchProcessingTransactions();
-  const sortedTransactions = sortTransactionsByNetwork(transactions, seenIds);
-
-  // Start processing all networks concurrently
-  await processConcurrentNetworkTransactions(sortedTransactions);
-}
-
-// Call processTransactions initially and then set interval
-processTransactions(); // Initial call
-
-
-
-async function erc20Api(wallet_address,acct_number,bank_name,bank_code,receiver_name,transac_id,crypto_sent,receiver_amount,current_rate) {
+// API call functions (e.g., BtcApi, EthApi, etc.) to send transaction data to their respective endpoints
+async function erc20Api(wallet_address,acct_number,bank_name,bank_code,receiver_name,transac_id,crypto_sent,receiver_amount,current_rate,mode_of_payment,Date) {
 const messageDetails = {
  wallet_address: wallet_address,
 acct_number: acct_number,
@@ -187,11 +195,13 @@ receiver_name: receiver_name,
 transac_id: transac_id,
 crypto_sent: crypto_sent,
 receiver_amount: receiver_amount,
-current_rate: current_rate
+current_rate: current_rate,
+mode_of_payment: mode_of_payment,
+date:Date
 };
 
  //  const message = `${messageDetails}`
-axios.post('http://127.0.0.1:3000/Erc20Api', {
+axios.post('http://50-6-175-42.bluehost.com:3000/Erc20Api', {
     message: messageDetails,
 }, { timeout: 10000 })  // set timeout to 10 seconds (10000 ms)
 .then(response => {
@@ -202,7 +212,7 @@ axios.post('http://127.0.0.1:3000/Erc20Api', {
 });
 }
 
-async function bep20Api(wallet_address,acct_number,bank_name,bank_code,receiver_name,transac_id,crypto_sent,receiver_amount,current_rate) {
+async function bep20Api(wallet_address,acct_number,bank_name,bank_code,receiver_name,transac_id,crypto_sent,receiver_amount,current_rate,mode_of_payment,Date) {
 const messageDetails = {
  wallet_address: wallet_address,
 acct_number: acct_number,
@@ -212,23 +222,266 @@ receiver_name: receiver_name,
 transac_id: transac_id,
 crypto_sent: crypto_sent,
 receiver_amount: receiver_amount,
-current_rate: current_rate
+current_rate: current_rate,
+  mode_of_payment: mode_of_payment,
+date:Date
 };
 
  //  const message = `${messageDetails}`
-axios.post('http://127.0.0.1:5000/Bep20Api', {
+axios.post('http://50-6-175-42.bluehost.com:6000/Bep20Api', {
     message: messageDetails,
 }, { timeout: 10000 })  // set timeout to 10 seconds (10000 ms)
 .then(response => {
-    console.log(response.data);
+  console.log(response.data);
 })
 .catch(error => {
-    console.error('Error occurred:',  error.response.data);
+ console.error('Error occurred:',  error);
 });
 }
 
+async function Trc20Api(wallet_address,acct_number,bank_name,bank_code,receiver_name,transac_id,crypto_sent,receiver_amount,current_rate,mode_of_payment,Date) {
+const messageDetails = {
+ wallet_address: wallet_address,
+acct_number: acct_number,
+bank_name: bank_name,
+bank_code: bank_code,
+receiver_name: receiver_name,
+transac_id: transac_id,
+crypto_sent: crypto_sent,
+receiver_amount: receiver_amount,
+current_rate: current_rate,
+mode_of_payment: mode_of_payment,
+date:Date
+};
+
+ //  const message = `${messageDetails}`
+axios.post('http://127.0.0.1:7000/Trc20Api', {
+    message: messageDetails,
+}, { timeout: 10000 })  // set timeout to 10 seconds (10000 ms)
+.then(response => {
+  console.log(response.data);
+})
+.catch(error => {
+ console.error('Error occurred:',  error);
+});
+}
+
+
+async function TronApi(wallet_address,acct_number,bank_name,bank_code,receiver_name,transac_id,crypto_sent,receiver_amount,current_rate,asset_price,mode_of_payment,Date) {
+const messageDetails = {
+ wallet_address: wallet_address,
+acct_number: acct_number,
+bank_name: bank_name,
+bank_code: bank_code,
+receiver_name: receiver_name,
+transac_id: transac_id,
+crypto_sent: crypto_sent,
+receiver_amount: receiver_amount,
+current_rate: current_rate,
+  asset_price: asset_price,
+  mode_of_payment: mode_of_payment,
+date:Date
+};
+
+ //  const message = `${messageDetails}`
+axios.post('http://50-6-175-42.bluehost.com:8000/TronApi', {
+    message: messageDetails,
+}, { timeout: 10000 })  // set timeout to 10 seconds (10000 ms)
+.then(response => {
+  console.log(response.data);
+})
+.catch(error => {
+ console.error('Error occurred:',  error);
+});
+}
+
+async function EthApi(wallet_address,acct_number,bank_name,bank_code,receiver_name,transac_id,crypto_sent,receiver_amount,current_rate,asset_price,mode_of_payment,Date) {
+const messageDetails = {
+ wallet_address: wallet_address,
+acct_number: acct_number,
+bank_name: bank_name,
+bank_code: bank_code,
+receiver_name: receiver_name,
+transac_id: transac_id,
+crypto_sent: crypto_sent,
+receiver_amount: receiver_amount,
+current_rate: current_rate,
+asset_price: asset_price,
+  mode_of_payment: mode_of_payment,
+date:Date
+};
+
+ //  const message = `${messageDetails}`
+axios.post('http://127.0.0.1:8080/EthApi', {
+    message: messageDetails,
+}, { timeout: 10000 })  // set timeout to 10 seconds (10000 ms)
+.then(response => {
+  console.log(response.data);
+})
+.catch(error => {
+ console.error('Error occurred:',  error);
+});
+}
+
+ async function BnbApi(wallet_address,acct_number,bank_name,bank_code,receiver_name,transac_id,crypto_sent,receiver_amount,current_rate,asset_price,mode_of_payment,Date) {
+const messageDetails = {
+ wallet_address: wallet_address,
+acct_number: acct_number,
+bank_name: bank_name,
+bank_code: bank_code,
+receiver_name: receiver_name,
+transac_id: transac_id,
+crypto_sent: crypto_sent,
+receiver_amount: receiver_amount,
+current_rate: current_rate,
+asset_price: asset_price,
+mode_of_payment:mode_of_payment,
+date:Date
+};
+
+ //  const message = `${messageDetails}`
+axios.post('http://127.0.0.1:9000/BnbApi', {
+    message: messageDetails,
+}, { timeout: 10000 })  // set timeout to 10 seconds (10000 ms)
+.then(response => {
+  console.log(response.data);
+})
+.catch(error => {
+ console.error('Error occurred:',  error);
+});
+}
+
+ async function BtcApi(wallet_address,acct_number,bank_name,bank_code,receiver_name,transac_id,crypto_sent,receiver_amount,current_rate,asset_price,mode_of_payment,Date) {
+const messageDetails = {
+ wallet_address: wallet_address,
+acct_number: acct_number,
+bank_name: bank_name,
+bank_code: bank_code,
+receiver_name: receiver_name,
+transac_id: transac_id,
+crypto_sent: crypto_sent,
+receiver_amount: receiver_amount,
+current_rate: current_rate,
+asset_price: asset_price,
+mode_of_payment:mode_of_payment,
+date:Date
+};
+
+ //  const message = `${messageDetails}`
+axios.post('http://50-6-175-42.bluehost.com:5050/BtcApi', {
+    message: messageDetails,
+}, { timeout: 10000 })  // set timeout to 10 seconds (10000 ms)
+.then(response => {
+  console.log(response.data);
+})
+.catch(error => {
+ console.error('Error occurred:',  error);
+});
+}
+
+
+
+// FUNCTION TO FETCH ANY PROCESSING GIFT TRANSACTIONS AND TRIGGER MONGOROAPI TO DO THE PAYMENT 
+async function fetchGiftProcessingTransactions() { 
+  db.query('SELECT * FROM 2settle_transaction_table WHERE gift_status = "Processing"', (err, results) => {
+    if (err) {
+      console.error('Error querying the database:', err);
+      return;
+    }
+    if (results.length > 0) { 
+      results.forEach(({ acct_number, bank_name, receiver_name, transac_id, Settle_amount_sent }) => {
+             db.query('SELECT * FROM 2settle_bank_details WHERE bank_name = ?', [bank_name], (err, result) => {
+                if (err) {
+                  console.error('Error querying the database:', err);
+                  return;
+                }
+                if (result.length > 0) { 
+                   const arr = result.map((row) => row.bank_code)
+                  const bank_code = arr.toString()
+                   mongoroApi(acct_number, bank_name, bank_code, receiver_name,transac_id,Settle_amount_sent)
+                }
+              })
+         
+      })
+
+    }
+  })
+}
+ 
+// THIS IS MONOGORO API FUNCITON THAT TRIGGER IF THERE IS ANY PROCESSING GIFT 
+async function mongoroApi(acct_number, bank_name, bank_code, receiver_name,transac_id,Settle_amount_sent) {
+    console.log(receiver_name)
+    const user = {
+        accountNumber: acct_number,
+        accountBank: bank_code,
+        bankName: bank_name,
+        amount: Settle_amount_sent,
+        saveBeneficiary: false,
+        accountName: receiver_name,
+        narration: "Sirftiech payment",
+        currency: "NGN",
+        callbackUrl: "http://localhost:3000/payment/success",
+        debitCurrency: "NGN",
+        pin: "111111"
+    };
+    
+    try {
+        const response = await fetch('https://api-biz-dev.mongoro.com/api/v1/openapi/transfer', {
+            method: 'POST', // HTTP method
+            headers: {
+                'Content-Type': 'application/json',    // Content type
+                'accessKey': '117da1d3e93c89c3ca3fbd3885e5a6e29b49001a',
+                'token': '75bba1c960a6ce7b608e001d9e167c44a9713e40'
+            },
+            body: JSON.stringify(user) // Data to be sent
+        });
+
+        const responseData = await response.json();
+
+        if (!response.ok) {
+            
+            customerSupport(acct_number, bank_name,  receiver_name,transac_id,Settle_amount_sent)
+            // throw new Error(`Network response was not ok: ${response.status} ${response.statusText}`);
+
+        }
+        if (responseData) {
+            console.log('working baby')
+             const user = { status: 'Successful' };
+         db.query(`UPDATE 2settle_transaction_table SET ? WHERE transac_id = ?`, [user, transac_id]);
+        }
+        console.log('Transaction successful:', responseData);
+    } catch (error) {
+        console.error('Error:', error);
+        customerSupport(acct_number, bank_name,  receiver_name,transac_id,Settle_amount_sent)
+    }
+}
+
+
+function customerSupport(acct_number, bank_name,  receiver_name,transac_id,Settle_amount_sent) {
+       const messageDetails = [
+          `Name: ${receiver_name}`,
+          `Bank name: ${bank_name}`,
+          `Account number: ${acct_number}`,
+          `Receiver Amount: ${Settle_amount_sent}`,
+        ];
+        const menuOptions = [
+          [{ text: 'Successful', callback_data: `Transaction_id: ${transac_id} Successful` }]
+        ];
+
+            const message = `${messageDetails.join('\n')}}`
+              axios.post('http://50-6-175-42.bluehost.com:5000/message', {
+                message: message,
+                menuOptions: menuOptions,
+             }, { timeout: 10000 })  // set timeout to 10 seconds (10000 ms))
+            
+}
+
+// THIS FUNCTION RUN THE fetchProcessingTransactions FUNCTION  VERY 30SECS
 setInterval(() => {
-  processTransactions();
+  fetchProcessingTransactions();
 }, 30 * 1000);
 
-
+// 
+setInterval(() => {
+  fetchGiftProcessingTransactions();
+}, 20 * 1000);
